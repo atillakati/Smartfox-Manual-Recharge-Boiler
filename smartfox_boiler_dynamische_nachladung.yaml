@@ -14,7 +14,7 @@ blueprint:
     - **Zeitsteuerung:** Über einen Home-Assistant-Zeitplan.
     - **Dynamische kWh-Nachladung:** Alle 5 Minuten eine neu berechnete,
       auf ganze Prozent gerundete Soll-Leistung (1–100 %).
-    - **Mindesttemperatur (neu):** Unabhängig von Zeitplan und kWh-Ziel
+    - **Mindesttemperatur:** Unabhängig von Zeitplan und kWh-Ziel
       bei Unterschreitung mit 50 % heizen, bis Mindesttemperatur + 3 K
       erreicht ist. Wert 0 deaktiviert diese Funktion.
     - **Priorität:** Mindesttemperatur vor kWh-Nachladung.
@@ -36,6 +36,7 @@ blueprint:
     - **1.0.0:** Zeitplan, dynamische kWh-Nachladung, Modbus-Ansteuerung.
   domain: automation
   author: Atilla Kati
+  source_url: https://github.com/atillakati/Smartfox-Manual-Recharge-Boiler/blob/main/smartfox_boiler_dynamische_nachladung.yaml
   input:
     zeitplan:
       name: Nachlade-Zeitplan
