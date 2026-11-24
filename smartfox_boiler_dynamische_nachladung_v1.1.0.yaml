@@ -1,0 +1,351 @@
+blueprint:
+  name: SMARTFOX Boiler – Dynamische kWh-Nachladung
+  description: |
+    ## Dynamische, zeitgesteuerte Boiler-Nachladung
+
+    **Version:** 1.1.0
+    **Stand:** 22.11.2026
+
+    Die Automation ergänzt die PV-Überschussheizung innerhalb eines
+    Wochenzeitplans bis zur konfigurierten Energiemenge pro Heiztag.
+
+    ### Funktionen
+
+    - **Zeitsteuerung:** Über einen Home-Assistant-Zeitplan.
+    - **Dynamische kWh-Nachladung:** Alle 5 Minuten eine neu berechnete,
+      auf ganze Prozent gerundete Soll-Leistung (1–100 %).
+    - **Mindesttemperatur (neu):** Unabhängig von Zeitplan und kWh-Ziel
+      bei Unterschreitung mit 50 % heizen, bis Mindesttemperatur + 3 K
+      erreicht ist. Wert 0 deaktiviert diese Funktion.
+    - **Priorität:** Mindesttemperatur vor kWh-Nachladung.
+    - **Betriebsart:** Manuell beim Nachladen, anschließend PV-Automatik.
+
+    ### Hinweise
+
+    Für die 3-K-Hysterese ist ein zweiter input_boolean-Helfer nötig.
+    Die geräteseitige Temperaturbegrenzung hat immer Vorrang.
+    Bei aktivierter Mindesttemperatur und ungültigem Temperatursensor
+    wird eine manuelle Nachladung beendet.
+    Nach einem Home-Assistant- oder Modbus-Ausfall ist eine geräteseitige
+    Sicherheits-/Rückfallsicherung empfehlenswert.
+
+    ### Änderungsverlauf
+
+    - **1.1.0:** Optionale Mindesttemperatur mit 3-K-Hysterese,
+      zusätzlicher Temperaturfühler und Zustandshelfer.
+    - **1.0.0:** Zeitplan, dynamische kWh-Nachladung, Modbus-Ansteuerung.
+  domain: automation
+  author: Atilla Kati
+  input:
+    zeitplan:
+      name: Nachlade-Zeitplan
+      selector:
+        entity:
+          filter:
+            - domain: schedule
+
+    energie_sensor:
+      name: Energiezähler für den Heiztag (kWh)
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+
+    nachladung_helfer:
+      name: Helfer – Nachladung aktiv
+      selector:
+        entity:
+          filter:
+            - domain: input_boolean
+
+    automatik_schalter:
+      name: SMARTFOX Automatik-Schalter
+      selector:
+        entity:
+          filter:
+            - domain: switch
+
+    ziel_kwh:
+      name: Energieziel pro Heiztag
+      default: 4.0
+      selector:
+        number:
+          min: 0.1
+          max: 30
+          step: 0.1
+          unit_of_measurement: kWh
+          mode: box
+
+    nennleistung_kw:
+      name: Rechenbasis für 100 % Soll-Leistung
+      description: Die reale Leistungskennlinie kann von der Nennleistung abweichen.
+      default: 4.5
+      selector:
+        number:
+          min: 0.1
+          max: 20
+          step: 0.1
+          unit_of_measurement: kW
+          mode: box
+
+    temperatur_sensor:
+      name: Temperatursensor für die Mindesttemperatur
+      description: Auch bei deaktivierter Mindesttemperatur auswählbar.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              device_class: temperature
+
+    mindesttemperatur:
+      name: Mindesttemperatur (0 = deaktiviert)
+      description: Unterhalb dieses Werts 50 % heizen; Ende bei Mindestwert + 3 K.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 80
+          step: 0.5
+          unit_of_measurement: "°C"
+          mode: box
+
+    mindesttemperatur_helfer:
+      name: Helfer – Mindesttemperatur-Heizphase aktiv
+      description: Separater input_boolean zum Speichern der 3-K-Hysterese.
+      selector:
+        entity:
+          filter:
+            - domain: input_boolean
+
+    modbus_hub:
+      name: Modbus-Hub
+      default: smartfox_modbus
+      selector:
+        text:
+
+    register_betriebsart:
+      name: Modbus-Adresse Betriebsart
+      description: "Home-Assistant-Adresse, bei dir 42560 (1 = Manuell)."
+      default: 42560
+      selector:
+        number:
+          min: 0
+          max: 65535
+          step: 1
+          mode: box
+
+    register_leistung:
+      name: Modbus-Adresse manuelle Soll-Leistung
+      description: "Home-Assistant-Adresse, bei dir 42561 (1–100 %)."
+      default: 42561
+      selector:
+        number:
+          min: 0
+          max: 65535
+          step: 1
+          mode: box
+
+mode: queued
+max: 5
+
+triggers:
+  - trigger: time_pattern
+    minutes: "/5"
+    seconds: 0
+    id: zyklus
+
+  - trigger: state
+    entity_id: !input zeitplan
+    id: zeitplan
+
+  - trigger: state
+    entity_id: !input energie_sensor
+    id: zaehler
+
+  - trigger: state
+    entity_id: !input temperatur_sensor
+    id: temperatur
+
+  - trigger: homeassistant
+    event: start
+    id: start
+
+actions:
+  - variables:
+      zeitplan_entity: !input zeitplan
+      energie_entity: !input energie_sensor
+      helfer_entity: !input nachladung_helfer
+      temperatur_entity: !input temperatur_sensor
+      min_helfer_entity: !input mindesttemperatur_helfer
+      minimum: !input mindesttemperatur
+      ziel: !input ziel_kwh
+      nennleistung: !input nennleistung_kw
+
+  - variables:
+      zaehler_gueltig: "{{ is_number(states(energie_entity)) }}"
+      verbrauch_kwh: "{{ states(energie_entity) | float(0) }}"
+      rest_kwh: >-
+        {{ [(ziel | float(4)) - (states(energie_entity) | float(0)), 0] | max }}
+      endzeit_ts: "{{ as_timestamp(state_attr(zeitplan_entity, 'next_event'), 0) }}"
+      temp_gueltig: "{{ is_number(states(temperatur_entity)) }}"
+      temperatur: "{{ states(temperatur_entity) | float(0) }}"
+      min_funktion_aktiv: "{{ (minimum | float(0)) > 0 }}"
+      min_vorher_aktiv: "{{ is_state(min_helfer_entity, 'on') }}"
+
+  - variables:
+      reststunden: >-
+        {% if is_state(zeitplan_entity, 'on') and (endzeit_ts | float(0)) > 0 %}
+          {{ [(endzeit_ts | float - as_timestamp(now())) / 3600, 0] | max }}
+        {% else %}
+          0
+        {% endif %}
+
+  - variables:
+      soll_prozent: >-
+        {% if (reststunden | float(0)) > 0 and (rest_kwh | float(0)) > 0 %}
+          {{ (rest_kwh | float(0)) * 100 /
+             ((nennleistung | float(4.5)) * (reststunden | float(0))) }}
+        {% else %}
+          0
+        {% endif %}
+
+  - variables:
+      prozent_ganz: >-
+        {% set p = soll_prozent | float(0) | round(0) | int %}
+        {{ [[p, 1] | max, 100] | min }}
+
+  # Hysterese mit eigenem Helfer speichern:
+  # Einschalten: T < Minimum; Ausschalten: T >= Minimum + 3 K.
+  # Bei deaktivierter Funktion oder Sensorfehler Hilfszustand zurücksetzen.
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ not (min_funktion_aktiv | bool(false))
+                 or not (temp_gueltig | bool(false))
+                 or (temperatur | float(0)) >= ((minimum | float(0)) + 3) }}
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ is_state(min_helfer_entity, 'on') }}"
+            then:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: !input mindesttemperatur_helfer
+
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ (min_funktion_aktiv | bool(false))
+                 and (temp_gueltig | bool(false))
+                 and (temperatur | float(0)) < (minimum | float(0)) }}
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ not is_state(min_helfer_entity, 'on') }}"
+            then:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: !input mindesttemperatur_helfer
+
+  - choose:
+      # PRIORITÄT 1: Mindesttemperatur, unabhängig von Zeitplan/kWh-Ziel.
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ (min_funktion_aktiv | bool(false))
+                 and (temp_gueltig | bool(false))
+                 and is_state(min_helfer_entity, 'on') }}
+        sequence:
+          # Nur beim Eintritt in den Mindesttemperaturmodus, beim Start
+          # der manuellen Nachladung oder nach HA-Neustart schreiben.
+          - if:
+              - condition: template
+                value_template: >-
+                  {{ not (min_vorher_aktiv | bool(false))
+                     or not is_state(helfer_entity, 'on')
+                     or trigger is not defined
+                     or trigger.id == 'start' }}
+            then:
+              - action: modbus.write_register
+                data:
+                  hub: !input modbus_hub
+                  address: !input register_leistung
+                  value: [50]
+
+              - if:
+                  - condition: template
+                    value_template: >-
+                      {{ not is_state(helfer_entity, 'on')
+                         or trigger is not defined
+                         or trigger.id == 'start' }}
+                then:
+                  - action: modbus.write_register
+                    data:
+                      hub: !input modbus_hub
+                      address: !input register_betriebsart
+                      value: [1]
+
+                  - action: input_boolean.turn_on
+                    target:
+                      entity_id: !input nachladung_helfer
+
+      # PRIORITÄT 2: bisherige dynamische kWh-Nachladung.
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ is_state(zeitplan_entity, 'on')
+                 and (zaehler_gueltig | bool(false))
+                 and (verbrauch_kwh | float(0)) < (ziel | float(4))
+                 and (reststunden | float(0)) > 0
+                 and not is_state(min_helfer_entity, 'on')
+                 and (not (min_funktion_aktiv | bool(false))
+                      or (temp_gueltig | bool(false))) }}
+        sequence:
+          # Im laufenden Betrieb nicht bei jeder Zähler-/Temperaturänderung
+          # neu schreiben. Beim Wechsel aus dem Mindestmodus aber sofort.
+          - if:
+              - condition: template
+                value_template: >-
+                  {{ not is_state(helfer_entity, 'on')
+                     or (min_vorher_aktiv | bool(false))
+                     or trigger is not defined
+                     or trigger.id in ['zyklus', 'zeitplan', 'start'] }}
+            then:
+              - action: modbus.write_register
+                data:
+                  hub: !input modbus_hub
+                  address: !input register_leistung
+                  value:
+                    - "{{ prozent_ganz | int }}"
+
+              - if:
+                  - condition: template
+                    value_template: >-
+                      {{ not is_state(helfer_entity, 'on')
+                         or trigger is not defined
+                         or trigger.id == 'start' }}
+                then:
+                  - action: modbus.write_register
+                    data:
+                      hub: !input modbus_hub
+                      address: !input register_betriebsart
+                      value: [1]
+
+                  - action: input_boolean.turn_on
+                    target:
+                      entity_id: !input nachladung_helfer
+
+    # Keine Nachladung erforderlich oder Sensordaten ungültig.
+    default:
+      - if:
+          - condition: template
+            value_template: "{{ is_state(helfer_entity, 'on') }}"
+        then:
+          - action: switch.turn_on
+            target:
+              entity_id: !input automatik_schalter
+
+          - action: input_boolean.turn_off
+            target:
+              entity_id: !input nachladung_helfer
