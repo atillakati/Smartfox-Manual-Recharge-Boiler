@@ -16,6 +16,28 @@ This automation supplements PV surplus heating within a weekly schedule, up to t
 
 ### Notes
 
+You will need an existing modbus connection to the SmartFox controller.
+```yaml
+# modbus tcp connection to Smartfox controller
+modbus:
+ - type: tcp
+   name: "smartfox_modbus"
+   host: <your smartfox IP>
+   port: 502
+
+   switches:
+    - name: smartfox_verbrauchsregler_mode
+      unique_id: smartfox_verbrauchsregler_mode
+      address: 42560
+      write_type: holdings
+      command_on: 2
+      command_off: 0
+      verify:
+        input_type: holding
+        state_on: 2
+        state_off: [0,1]
+```
+
 A second input_boolean helper is required for the 3 K hysteresis. The device's own temperature limit always takes precedence. If the minimum temperature is enabled and the temperature sensor is invalid, any active manual top-up is stopped. A device-side safety/fallback mechanism is recommended in case of a Home Assistant or Modbus outage.
 
 ### Changelog
