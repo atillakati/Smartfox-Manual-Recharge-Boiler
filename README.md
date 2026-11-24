@@ -1,6 +1,8 @@
 # Smartfox manual Recharge Boiler
 Boiler Heating Element Control (manual recharge), a simple HA automation solution to manually recharge the Smartfox boiler element.
 
+The Smartfox control is annoying with its opaque documentation and unreliable functionality. Since I never want to be in a situation again where there's no hot water for showering, I built an automation in HA that ensures you can have hot showers every day. Especially during the dark lull (winter)...
+
 **Version:** 1.1.0
 **Date:** 2026-11-24
 
