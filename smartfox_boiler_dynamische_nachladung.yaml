@@ -1,39 +1,39 @@
 blueprint:
   name: SMARTFOX Boiler – Dynamische kWh-Nachladung
   description: |
-    ## Dynamische, zeitgesteuerte Boiler-Nachladung
+    ## Dynamic, Time-Controlled Boiler Top-Up Heating
 
     **Version:** 1.1.0
-    **Stand:** 22.11.2026
+    **Date:** 2026-11-24
 
-    Die Automation ergänzt die PV-Überschussheizung innerhalb eines
-    Wochenzeitplans bis zur konfigurierten Energiemenge pro Heiztag.
+    This automation supplements PV surplus heating within a weekly
+    schedule, up to the configured amount of energy per heating day.
 
-    ### Funktionen
+    ### Features
 
-    - **Zeitsteuerung:** Über einen Home-Assistant-Zeitplan.
-    - **Dynamische kWh-Nachladung:** Alle 5 Minuten eine neu berechnete,
-      auf ganze Prozent gerundete Soll-Leistung (1–100 %).
-    - **Mindesttemperatur:** Unabhängig von Zeitplan und kWh-Ziel
-      bei Unterschreitung mit 50 % heizen, bis Mindesttemperatur + 3 K
-      erreicht ist. Wert 0 deaktiviert diese Funktion.
-    - **Priorität:** Mindesttemperatur vor kWh-Nachladung.
-    - **Betriebsart:** Manuell beim Nachladen, anschließend PV-Automatik.
+    - **Time control:** Via a Home Assistant schedule.
+    - **Dynamic kWh top-up:** Every 5 minutes, a newly calculated target
+      power, rounded to whole percent (1–100 %).
+    - **Minimum temperature:** Independent of the schedule and kWh target,
+      heats at 50 % when the temperature drops below the minimum, until
+      minimum temperature + 3 K is reached. A value of 0 disables this feature.
+    - **Priority:** Minimum temperature takes precedence over kWh top-up.
+    - **Operating mode:** Manual during top-up, then back to PV automatic mode.
 
-    ### Hinweise
+    ### Notes
 
-    Für die 3-K-Hysterese ist ein zweiter input_boolean-Helfer nötig.
-    Die geräteseitige Temperaturbegrenzung hat immer Vorrang.
-    Bei aktivierter Mindesttemperatur und ungültigem Temperatursensor
-    wird eine manuelle Nachladung beendet.
-    Nach einem Home-Assistant- oder Modbus-Ausfall ist eine geräteseitige
-    Sicherheits-/Rückfallsicherung empfehlenswert.
+    A second input_boolean helper is required for the 3 K hysteresis.
+    The device's own temperature limit always takes precedence.
+    If the minimum temperature is enabled and the temperature sensor is
+    invalid, any active manual top-up is stopped.
+    A device-side safety/fallback mechanism is recommended in case of a
+    Home Assistant or Modbus outage.
 
-    ### Änderungsverlauf
+    ### Changelog
 
-    - **1.1.0:** Optionale Mindesttemperatur mit 3-K-Hysterese,
-      zusätzlicher Temperaturfühler und Zustandshelfer.
-    - **1.0.0:** Zeitplan, dynamische kWh-Nachladung, Modbus-Ansteuerung.
+    - **1.1.0:** Optional minimum temperature with 3 K hysteresis,
+      additional temperature sensor and state helper.
+    - **1.0.0:** Schedule, dynamic kWh top-up, Modbus control.
   domain: automation
   author: Atilla Kati
   source_url: https://github.com/atillakati/Smartfox-Manual-Recharge-Boiler/blob/main/smartfox_boiler_dynamische_nachladung.yaml
