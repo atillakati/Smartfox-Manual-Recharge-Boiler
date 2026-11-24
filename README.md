@@ -14,6 +14,14 @@ This automation supplements PV surplus heating within a weekly schedule, up to t
 - **Priority:** Minimum temperature takes precedence over kWh top-up. 
 - **Operating mode:** Manual during top-up, then back to PV automatic mode.
 
+### Installation
+
+You can add the blueprint in HA via *Settings → Automations & Scenes → Blueprints → Import* Blueprint using this URL. 
+  
+You also can use the 'Import Blueprint' button below:
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fatillakati%2FSmartfox-Manual-Recharge-Boiler%2Fblob%2Fmain%2Fsmartfox_boiler_dynamische_nachladung.yaml)
+
 ### Notes
 
 You will need an existing modbus connection to the SmartFox controller.
